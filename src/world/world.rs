@@ -127,7 +127,7 @@ impl World {
     // 3. connect the new node to the neighbors and on all lower levels
     // 4. recursively connect the new node to the neighbors' neighbors
     // 5. if the new node has no connections, add it to the graph at level 0
-    pub(crate) fn insert_vector(&mut self, id: u32, vector: Vec<f32>) -> Result<()> {
+    pub fn insert_vector(&mut self, id: u32, vector: Vec<f32>) -> Result<()> {
         let level = self.pick_node_level();
         let mut node = Node::new(id, vector, level);
         // If this is the first node, initialize it as the entrypoint for all levels
@@ -136,6 +136,9 @@ impl World {
             self.nodes.insert(node.id(), node.clone());
             return Ok(());
         }
+
+        // add the new node to the world
+        self.nodes.insert(node.id(), node.clone());
 
         // for level and every one below, we need to connect the new node to the nearest neighbours on that level
         for level in (0..=level).rev() {
@@ -165,9 +168,6 @@ impl World {
                 self.prune_node_connections(node_id, level);
             }
         }
-
-        // add the new node to the world
-        self.nodes.insert(node.id(), node.clone());
 
         Ok(())
     }
@@ -234,7 +234,13 @@ impl World {
         // for every level,
         for level in (0..=self.max_level).rev() {
             let mut next_candidates = Vec::new();
+            let mut visited = HashSet::new();
             while let Some((_, candidate_id)) = candidates.pop() {
+                if visited.contains(&candidate_id) {
+                    continue;
+                }
+                visited.insert(candidate_id);
+
                 // convert the ordered float back to a float
                 let candidate = self.nodes.get(&candidate_id).unwrap();
                 let local_best = self.greedy_search(&query, candidate, level);
