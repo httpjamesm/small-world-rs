@@ -21,3 +21,26 @@ Basically, it works like this:
 3. Insert your vectors into the world with `world.insert_vector`
 4. Perform a search with `world.search`
 5. Dump the world with `world.dump` to save for later
+
+## What config values should I use?
+
+Key Parameters:
+
+- `m`: Connections per layer
+
+  - Recommended: 16-64
+  - Sweet spot: 32
+  - Higher values increase recall but consume more memory
+
+- `ef_construction`: Construction-time exploration factor
+
+  - Recommended: 100-500
+  - Trade-off: Higher values = better recall but slower build time
+  - Rule of thumb: 2-4× your target `ef_search`
+
+- `ef_search`: Query-time exploration factor
+
+  - Recommended: 50-150
+  - Adjustable at search time
+  - Higher values increase accuracy but slow down search
+  - Tune based on recall requirements

@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         let world_data = fs::read(WORLD_FILE)?;
         World::new_from_dump(&world_data)?
     } else {
-        let mut world = World::new(16, 32, 32, 2, DistanceMetric::Cosine(CosineDistance))?;
+        let mut world = World::new(16, 32, 32, DistanceMetric::Cosine(CosineDistance))?;
         let cache_path = Path::new(CACHE_FILE);
 
         if !cache_path.exists() {

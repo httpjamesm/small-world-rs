@@ -30,7 +30,6 @@ impl World {
         m: usize,
         ef_construction: usize,
         ef_search: usize,
-        max_level: usize,
         distance_metric: DistanceMetric,
     ) -> Result<Self> {
         // ef_construction must be >= M
@@ -44,7 +43,7 @@ impl World {
             m,
             ef_construction,
             ef_search,
-            max_level,
+            max_level: 1,
             distance_metric,
         })
     }
@@ -149,24 +148,24 @@ impl World {
     // 4. recursively connect the new node to the neighbors' neighbors
     // 5. if the new node has no connections, add it to the graph at level 0
     pub fn insert_vector(&mut self, id: u32, vector: Vector) -> Result<()> {
-        let level = self.pick_node_level();
-        let mut node = Node::new(id, vector, level);
-
         // If this is the first node, initialize it as the entrypoint for all levels
         if self.nodes.is_empty() {
+            let initial_level = self.pick_node_level();
+            let node = Node::new(id, vector, initial_level);
             self.nodes.insert(node.id(), node.clone());
-            self.level_entrypoints = vec![id; level + 1];
-            self.max_level = level;
+            self.level_entrypoints = vec![id; initial_level + 1];
+            self.max_level = initial_level;
             return Ok(());
         }
 
-        if level > self.max_level {
-            // Add additional entrypoints for the new levels (if any)
-            for _ in (self.max_level + 1)..=level {
-                self.level_entrypoints.push(id);
-            }
-            self.max_level = level;
+        let new_max_level = calculate_max_level(self.nodes.len() + 1, self.m);
+        if new_max_level > self.max_level {
+            self.max_level = new_max_level;
+            self.level_entrypoints.resize(new_max_level + 1, id);
         }
+
+        let level = self.pick_node_level();
+        let mut node = Node::new(id, vector, level);
 
         // add the new node to the world
         self.nodes.insert(node.id(), node.clone());
@@ -335,6 +334,12 @@ impl World {
     }
 }
 
+fn calculate_max_level(n: usize, m: usize) -> usize {
+    // p = 1/m
+    // max_level ≈ log(n)/log(m)
+    (((n as f64).ln() / (m as f64).ln()).ceil() as usize).max(1)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::distance_metric::CosineDistance;
@@ -343,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_world_insert_and_search() -> Result<()> {
-        let mut world = World::new(5, 10, 10, 3, DistanceMetric::Cosine(CosineDistance))?;
+        let mut world = World::new(5, 10, 10, DistanceMetric::Cosine(CosineDistance))?;
 
         let test_vectors = vec![
             (1, Vector::new_f32(&[1.0, 0.0, 0.0])),
@@ -366,7 +371,7 @@ mod tests {
     #[test]
     fn test_world_dump_and_load() -> Result<()> {
         // make world, dump it, hash it, load it, hash it, assert equal
-        let world = World::new(5, 10, 10, 3, DistanceMetric::Cosine(CosineDistance))?;
+        let world = World::new(5, 10, 10, DistanceMetric::Cosine(CosineDistance))?;
         let dump = world.dump()?;
         let original_hash = blake3::hash(&dump);
         let loaded_world = World::new_from_dump(&dump)?;
