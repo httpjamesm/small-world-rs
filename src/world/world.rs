@@ -244,12 +244,11 @@ impl World {
             }
 
             // keep the top beam width candidates
-            candidates = next_candidates
-                .into_iter()
-                .collect::<BinaryHeap<_>>()
-                .into_iter()
-                .take(beam_width)
-                .collect();
+            let mut heap: BinaryHeap<_> = next_candidates.into_iter().collect();
+            while heap.len() > beam_width {
+                heap.pop();
+            }
+            candidates = heap;
         }
 
         // return the best candidate
