@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::calculate_cosine_similarity;
+use crate::distance_metric::DistanceMetric;
 use crate::primitives::vector::Vector;
 use std::collections::HashSet;
 
@@ -32,8 +32,8 @@ impl Node {
         self.connections[level].clone().into_iter().collect()
     }
 
-    pub fn distance(&self, other: &Vector) -> f32 {
-        1.0 - calculate_cosine_similarity(&self.value, other)
+    pub fn distance(&self, other: &Vector, distance_metric: &DistanceMetric) -> f32 {
+        distance_metric.distance(&self.value, other)
     }
 
     pub fn id(&self) -> u32 {

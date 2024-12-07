@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use super::node::Node;
-use crate::primitives::vector::Vector;
+use crate::{distance_metric::DistanceMetric, primitives::vector::Vector};
 use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ pub struct World {
     ef_search: usize,
     // max_level is the maximum level of the HNSW graph
     max_level: usize,
+    distance_metric: DistanceMetric,
 }
 
 impl World {
@@ -30,6 +31,7 @@ impl World {
         ef_construction: usize,
         ef_search: usize,
         max_level: usize,
+        distance_metric: DistanceMetric,
     ) -> Result<Self> {
         // ef_construction must be >= M
         if ef_construction < m {
@@ -43,6 +45,7 @@ impl World {
             ef_construction,
             ef_search,
             max_level,
+            distance_metric,
         })
     }
 
@@ -80,7 +83,7 @@ impl World {
         let mut best_candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
 
         // get the distance between the new node and the entry node
-        let distance = entry_node.distance(query);
+        let distance = entry_node.distance(query, &self.distance_metric);
         // add the entry node to the candidates
         // we're using negatives here because BinaryHeap is a max heap by default and we want min heap behaviour to find the nearest neighbours, not the furthest
         candidates.push((-OrderedFloat(distance), entry_node.id()));
@@ -108,7 +111,11 @@ impl World {
                 visited.insert(neighbour_id);
 
                 // get the distance between the new node and the neighbour
-                let distance = self.nodes.get(&neighbour_id).unwrap().distance(query);
+                let distance = self
+                    .nodes
+                    .get(&neighbour_id)
+                    .unwrap()
+                    .distance(query, &self.distance_metric);
 
                 // if this candidate is better than the best candidate
                 let ef_size = if level == 0 {
@@ -173,8 +180,16 @@ impl World {
 
             // Pick the closest candidate as the new entry point for the next level down
             if let Some(closest_id) = candidates.iter().min_by(|&id_a, &id_b| {
-                let dist_a = self.nodes.get(id_a).unwrap().distance(node.value());
-                let dist_b = self.nodes.get(id_b).unwrap().distance(node.value());
+                let dist_a = self
+                    .nodes
+                    .get(id_a)
+                    .unwrap()
+                    .distance(&node.value(), &self.distance_metric);
+                let dist_b = self
+                    .nodes
+                    .get(id_b)
+                    .unwrap()
+                    .distance(&node.value(), &self.distance_metric);
                 dist_a.partial_cmp(&dist_b).unwrap()
             }) {
                 current_node_id = *closest_id;
@@ -208,7 +223,10 @@ impl World {
             node.connections(level)
                 .iter()
                 .map(|&neighbour_id| {
-                    let distance = node.distance(self.nodes.get(&neighbour_id).unwrap().value());
+                    let distance = node.distance(
+                        self.nodes.get(&neighbour_id).unwrap().value(),
+                        &self.distance_metric,
+                    );
                     (neighbour_id, distance)
                 })
                 .collect()
@@ -248,7 +266,7 @@ impl World {
             .into_iter()
             .map(|id| {
                 let node = self.nodes.get(&id).unwrap();
-                let distance = node.distance(query);
+                let distance = node.distance(query, &self.distance_metric);
                 (id, distance)
             })
             .collect();
@@ -262,7 +280,7 @@ impl World {
     fn beam_search(&self, query: &Vector, beam_width: usize) -> Vec<u32> {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
         let entrypoint_node = self.get_entrypoint_node();
-        let initial_distance = entrypoint_node.distance(query);
+        let initial_distance = entrypoint_node.distance(query, &self.distance_metric);
         candidates.push((OrderedFloat(initial_distance), entrypoint_node.id()));
 
         let mut visited = HashSet::new();
@@ -288,7 +306,11 @@ impl World {
 
                 for &id in &local_best {
                     if !visited.contains(&id) {
-                        let dist = self.nodes.get(&id).unwrap().distance(query);
+                        let dist = self
+                            .nodes
+                            .get(&id)
+                            .unwrap()
+                            .distance(query, &self.distance_metric);
                         next_candidates.push((OrderedFloat(dist), id));
                     }
                 }
@@ -315,11 +337,13 @@ impl World {
 
 #[cfg(test)]
 mod tests {
+    use crate::distance_metric::CosineDistance;
+
     use super::*;
 
     #[test]
     fn test_world_insert_and_search() -> Result<()> {
-        let mut world = World::new(5, 10, 10, 3)?;
+        let mut world = World::new(5, 10, 10, 3, DistanceMetric::Cosine(CosineDistance))?;
 
         let test_vectors = vec![
             (1, Vector::new_f32(&[1.0, 0.0, 0.0])),
@@ -342,7 +366,7 @@ mod tests {
     #[test]
     fn test_world_dump_and_load() -> Result<()> {
         // make world, dump it, hash it, load it, hash it, assert equal
-        let world = World::new(5, 10, 10, 3)?;
+        let world = World::new(5, 10, 10, 3, DistanceMetric::Cosine(CosineDistance))?;
         let dump = world.dump()?;
         let original_hash = blake3::hash(&dump);
         let loaded_world = World::new_from_dump(&dump)?;
