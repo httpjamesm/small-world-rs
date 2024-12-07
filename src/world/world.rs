@@ -84,8 +84,9 @@ impl World {
         while !candidates.is_empty() {
             let (current_dist, current_id) = candidates.pop().unwrap();
 
+            // if the current distance is greater than the best candidate, skip it because it's a bad candidate
             if !best_candidates.is_empty() && -current_dist > best_candidates.peek().unwrap().0 {
-                break;
+                continue;
             }
 
             // at this level, we need to check the neighbours
@@ -106,10 +107,10 @@ impl World {
                     || OrderedFloat(distance) < best_candidates.peek().unwrap().0
                 {
                     // The new candidate is strictly better (smaller distance) than the worst one we have so far.
-                    candidates.push((-OrderedFloat(distance), neighbour_id));
+                    candidates.push((OrderedFloat(distance), neighbour_id));
                     best_candidates.push((OrderedFloat(distance), neighbour_id));
 
-                    // Enforce ef_construction by popping the largest distance from best_candidates if needed
+                    // Enforce ef_construction by popping the largest distance from best_candidates if needed (max heap, so the root node is the furthest and therefore the worst)
                     if best_candidates.len() > self.ef_construction {
                         best_candidates.pop();
                     }
@@ -130,44 +131,60 @@ impl World {
     pub fn insert_vector(&mut self, id: u32, vector: Vec<f32>) -> Result<()> {
         let level = self.pick_node_level();
         let mut node = Node::new(id, vector, level);
+
         // If this is the first node, initialize it as the entrypoint for all levels
         if self.nodes.is_empty() {
-            self.level_entrypoints = vec![id; level + 1];
             self.nodes.insert(node.id(), node.clone());
+            self.level_entrypoints = vec![id; level + 1];
+            self.max_level = level;
             return Ok(());
+        }
+
+        if level > self.max_level {
+            // Add additional entrypoints for the new levels (if any)
+            for _ in (self.max_level + 1)..=level {
+                self.level_entrypoints.push(id);
+            }
+            self.max_level = level;
         }
 
         // add the new node to the world
         self.nodes.insert(node.id(), node.clone());
 
-        // for level and every one below, we need to connect the new node to the nearest neighbours on that level
-        for level in (0..=level).rev() {
-            let entrypoint_node = self.get_entrypoint_node_per_level(level);
-            let nearest_neighbours = self.greedy_search(node.value(), &entrypoint_node, level);
+        // Start from the top-level entry point
+        let mut current_node_id = self.level_entrypoints[self.max_level];
 
-            let mut nodes_to_prune = Vec::new();
+        for lvl in (level + 1..=self.max_level).rev() {
+            let current_node = self.nodes.get(&current_node_id).unwrap();
+            let candidates = self.greedy_search(node.value(), current_node, lvl);
 
-            // connect the new node to the nearest neighbours
-            for &neighbour_id in &nearest_neighbours {
-                if let Some(neighbour) = self.nodes.get_mut(&neighbour_id) {
-                    node.connect(neighbour, level);
-
-                    // if the new node has more than M connections, we need to prune it
-                    if node.connections(level).len() > self.m {
-                        nodes_to_prune.push(node.id());
-                    }
-
-                    // if the neighbour has more than M connections, we need to prune it
-                    if neighbour.connections(level).len() > self.m {
-                        nodes_to_prune.push(neighbour_id);
-                    }
-                }
-            }
-
-            for node_id in nodes_to_prune {
-                self.prune_node_connections(node_id, level);
+            // Pick the closest candidate as the new entry point for the next level down
+            if let Some(closest_id) = candidates.iter().min_by(|&id_a, &id_b| {
+                let dist_a = self.nodes.get(id_a).unwrap().distance(node.value());
+                let dist_b = self.nodes.get(id_b).unwrap().distance(node.value());
+                dist_a.partial_cmp(&dist_b).unwrap()
+            }) {
+                current_node_id = *closest_id;
             }
         }
+
+        // Now we are at the correct insertion level (node_level), perform a local search here
+        let insertion_node = self.nodes.get(&current_node_id).unwrap();
+        let nearest_neighbours = self.greedy_search(node.value(), insertion_node, level);
+
+        // Connect new node with found neighbors and prune
+        for &nbr_id in &nearest_neighbours {
+            // Connect `node` and neighbor
+            node.connect(self.nodes.get_mut(&nbr_id).unwrap(), level);
+        }
+
+        // prune the node if it has more than M connections
+        if node.connections(level).len() > self.m {
+            self.prune_node_connections(node.id(), level);
+        }
+
+        println!("Inserted node {} at level {}", id, level);
+        println!("My neighbours are {:?}", node.connections(level));
 
         Ok(())
     }
@@ -225,41 +242,50 @@ impl World {
 
     fn beam_search(&self, query: &Vec<f32>, beam_width: usize) -> Vec<u32> {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
-        // calculate actual distance for entrypoint node
         let entrypoint_node = self.get_entrypoint_node();
         let initial_distance = entrypoint_node.distance(query);
         candidates.push((OrderedFloat(initial_distance), entrypoint_node.id()));
 
         let mut visited = HashSet::new();
+        let mut final_candidates = Vec::new();
 
-        // for every level,
         for level in (0..=self.max_level).rev() {
             let mut next_candidates = Vec::new();
-            while let Some((_, candidate_id)) = candidates.pop() {
+
+            // Store current candidates before processing
+            let current_candidates: Vec<_> = candidates.drain().collect();
+
+            for (dist, candidate_id) in current_candidates {
                 if visited.contains(&candidate_id) {
                     continue;
                 }
                 visited.insert(candidate_id);
 
-                // convert the ordered float back to a float
                 let candidate = self.nodes.get(&candidate_id).unwrap();
                 let local_best = self.greedy_search(&query, candidate, level);
+
+                // Add the current candidate to final candidates
+                final_candidates.push((dist, candidate_id));
+
                 for &id in &local_best {
-                    let dist = self.nodes.get(&id).unwrap().distance(query);
-                    next_candidates.push((OrderedFloat(dist), id));
+                    if !visited.contains(&id) {
+                        let dist = self.nodes.get(&id).unwrap().distance(query);
+                        next_candidates.push((OrderedFloat(dist), id));
+                    }
                 }
             }
 
-            // keep the top beam width candidates
-            let mut heap: BinaryHeap<_> = next_candidates.into_iter().collect();
-            while heap.len() > beam_width {
-                heap.pop();
-            }
-            candidates = heap;
+            // Combine current and next candidates
+            candidates = next_candidates.into_iter().collect();
         }
 
-        // return the best candidate
-        candidates.into_iter().map(|(_, id)| id).collect()
+        // Return the best candidates we've found
+        final_candidates.sort_by_key(|(dist, _)| *dist);
+        final_candidates
+            .into_iter()
+            .take(beam_width)
+            .map(|(_, id)| id)
+            .collect()
     }
 }
 
