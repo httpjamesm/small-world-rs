@@ -220,9 +220,6 @@ impl World {
             self.prune_node_connections(node.id(), level);
         }
 
-        println!("Inserted node {} at level {}", id, level);
-        println!("My neighbours are {:?}", node.connections(level));
-
         Ok(())
     }
 
