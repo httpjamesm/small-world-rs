@@ -1,7 +1,5 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
-use crate::metrics::calculate_cosine_similarity;
-
 use super::node::Node;
 use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
@@ -193,8 +191,16 @@ impl World {
             .map(|(id, _)| *id)
             .collect::<Vec<_>>();
 
+        // Remove connections from the current node
         let node = self.nodes.get_mut(&node_id).unwrap();
         node.remove_connections(&connections_to_remove, level);
+
+        // Remove the corresponding back-connections from neighbor nodes
+        for &neighbor_id in &connections_to_remove {
+            if let Some(neighbor) = self.nodes.get_mut(&neighbor_id) {
+                neighbor.remove_connections(&vec![node_id], level);
+            }
+        }
     }
 
     // search gets the k nearest neighbours to the query vector using beam search
