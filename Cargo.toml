@@ -13,6 +13,10 @@ license = "MIT"
 name = "small_world_rs"
 crate-type = ["lib"]
 
+[[bench]]
+name = "search_benchmark"
+harness = false
+
 [dependencies]
 anyhow = "1.0.94"
 assert_approx_eq = "1.1.0"
@@ -23,3 +27,6 @@ half = { version = "2.4.1", features = ["serde"] }
 ordered-float = "4.5.0"
 serde = { version = "1.0", features = ["derive"] }
 simsimd = "6.2.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
