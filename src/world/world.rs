@@ -146,6 +146,7 @@ impl World {
     }
 
     /// insert_node inserts a new node into the world.
+    /// id must be fully unique in the World
     // 1. pick the level at which to insert the node
     // 2. find the M nearest neighbors for the node at the chosen level
     // 3. connect the new node to the neighbors and on all lower levels
@@ -160,6 +161,11 @@ impl World {
             self.level_entrypoints = vec![id; initial_level + 1];
             self.max_level = initial_level;
             return Ok(());
+        }
+
+        // ensure the id is completely unique
+        if self.nodes.contains_key(&id) {
+            bail!("Node id must be unique");
         }
 
         let new_max_level = calculate_max_level(self.nodes.len() + 1, self.m);
