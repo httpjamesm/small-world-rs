@@ -1,5 +1,7 @@
 # small-world-rs
 
+![crates.io](https://img.shields.io/crates/v/small-world-rs.svg)
+
 small-world-rs is an HNSW vector index written in Rust.
 
 ## Features
