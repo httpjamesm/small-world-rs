@@ -5,6 +5,10 @@ pub(crate) fn calculate_cosine_similarity(a: &Vector, b: &Vector) -> f32 {
     1.0 - f32::cosine(a.as_slice().as_ref(), b.as_slice().as_ref()).unwrap() as f32
 }
 
+pub(crate) fn calculate_euclidean_distance(a: &Vector, b: &Vector) -> f32 {
+    f32::euclidean(a.as_slice().as_ref(), b.as_slice().as_ref()).unwrap() as f32
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -34,5 +38,14 @@ mod tests {
         let v7 = Vector::new_f32(&[1.0, 0.0, 0.0]);
         let v8 = Vector::new_f32(&[-1.0, 0.0, 0.0]);
         assert_approx_eq!(calculate_cosine_similarity(&v7, &v8), -1.0, 1e-6);
+    }
+
+    // test euclidean distance
+    #[test]
+    fn test_euclidean_distance() {
+        let v1 = Vector::new_f32(&[1.0, 2.0, 3.0]);
+        let v2 = Vector::new_f32(&[4.0, 5.0, 6.0]);
+        let result = calculate_euclidean_distance(&v1, &v2);
+        assert_approx_eq!(result, 5.196152, 1e-6);
     }
 }
