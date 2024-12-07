@@ -158,8 +158,19 @@ impl World {
             let initial_level = self.pick_node_level();
             let node = Node::new(id, vector, initial_level);
             self.nodes.insert(node.id(), node.clone());
-            self.level_entrypoints = vec![id; initial_level + 1];
-            self.max_level = initial_level;
+
+            // Calculate the max_level based on the number of nodes (which is 1)
+            let calculated_max_level = calculate_max_level(1, self.m);
+            self.max_level = calculated_max_level;
+
+            // Ensure connections vectors are up to max_level + 1
+            self.level_entrypoints = vec![id; self.max_level + 1];
+
+            let node = self.nodes.get_mut(&id).unwrap();
+            while node.connections_len() < self.max_level + 1 {
+                node.add_connection_level();
+            }
+
             return Ok(());
         }
 
