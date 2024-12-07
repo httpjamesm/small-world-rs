@@ -10,7 +10,6 @@ pub struct Node {
     // connections represents the ids of the nodes that this node is connected to.
     // index = level, value = ids of nodes in that level that this node is connected to
     connections: Vec<HashSet<u32>>,
-    max_level: usize,
 }
 
 impl Node {
@@ -19,7 +18,6 @@ impl Node {
             id,
             value,
             connections: vec![HashSet::new(); max_level + 1],
-            max_level,
         }
     }
 
@@ -52,6 +50,7 @@ impl Node {
     pub fn remove_connections(&mut self, ids: &[u32], level: usize) {
         self.connections[level].retain(|id| !ids.contains(id));
     }
+
     pub fn value(&self) -> &Vec<f32> {
         &self.value
     }
