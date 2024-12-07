@@ -126,9 +126,9 @@ impl World {
     // 3. connect the new node to the neighbors and on all lower levels
     // 4. recursively connect the new node to the neighbors' neighbors
     // 5. if the new node has no connections, add it to the graph at level 0
-    pub(crate) fn insert_node(&mut self, node: &mut Node) -> Result<()> {
+    pub(crate) fn insert_vector(&mut self, id: u32, vector: Vec<f32>) -> Result<()> {
         let level = self.pick_node_level();
-
+        let mut node = Node::new(id, vector, level);
         // If this is the first node, initialize it as the entrypoint for all levels
         if self.nodes.is_empty() {
             self.level_entrypoints = vec![node.id(); self.max_level + 1];
@@ -272,9 +272,7 @@ mod tests {
         ];
 
         for (id, vector) in test_vectors {
-            let level = world.pick_node_level();
-            let mut node = Node::new(id, vector, level);
-            world.insert_node(&mut node)?;
+            world.insert_vector(id, vector)?;
         }
 
         let query = vec![0.8, 0.8, 0.0];
