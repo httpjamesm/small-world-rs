@@ -9,6 +9,8 @@ keywords = ["hnsw", "vector", "search", "index", "graph"]
 categories = ["data-structures"]
 license = "MIT"
 
+exclude = ["benches", "examples"]
+
 [lib]
 name = "small_world_rs"
 crate-type = ["lib"]
