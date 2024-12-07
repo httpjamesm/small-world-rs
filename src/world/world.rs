@@ -111,7 +111,12 @@ impl World {
                 let distance = self.nodes.get(&neighbour_id).unwrap().distance(query);
 
                 // if this candidate is better than the best candidate
-                if best_candidates.len() < self.ef_construction
+                let ef_size = if level == 0 {
+                    self.ef_search
+                } else {
+                    self.ef_construction
+                };
+                if best_candidates.len() < ef_size
                     || OrderedFloat(distance) < best_candidates.peek().unwrap().0
                 {
                     // The new candidate is strictly better (smaller distance) than the worst one we have so far.
@@ -119,7 +124,7 @@ impl World {
                     best_candidates.push((OrderedFloat(distance), neighbour_id));
 
                     // Enforce ef_construction by popping the largest distance from best_candidates if needed (max heap, so the root node is the furthest and therefore the worst)
-                    if best_candidates.len() > self.ef_construction {
+                    if best_candidates.len() > ef_size {
                         best_candidates.pop();
                     }
                 }
@@ -230,7 +235,13 @@ impl World {
     }
 
     // search gets the k nearest neighbours to the query vector using beam search
-    pub fn search(&self, query: &Vector, k: usize, beam_width: usize) -> Vec<u32> {
+    pub fn search(&self, query: &Vector, k: usize, beam_width: usize) -> Result<Vec<u32>> {
+        if k > self.ef_search {
+            bail!(
+                "k is greater than the maximum number of connections to explore for a node during search"
+            );
+        }
+
         let candidates = self.beam_search(query, beam_width);
 
         let mut results: Vec<(u32, f32)> = candidates
@@ -245,7 +256,7 @@ impl World {
         results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         // Return top k results
-        results.into_iter().take(k).map(|(id, _)| id).collect()
+        Ok(results.into_iter().take(k).map(|(id, _)| id).collect())
     }
 
     fn beam_search(&self, query: &Vector, beam_width: usize) -> Vec<u32> {
@@ -322,7 +333,7 @@ mod tests {
         }
 
         let query = Vector::new_f32(&[0.8, 0.8, 0.0]);
-        let results = world.search(&query, 2, 5);
+        let results = world.search(&query, 2, 5)?;
 
         assert!(results.len() >= 1, "Should find at least 1 result");
         Ok(())

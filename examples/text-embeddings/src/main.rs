@@ -87,7 +87,7 @@ async fn main() -> Result<()> {
 
         let embedding = get_embedding(&client, &query).await?;
         let vector = Vector::new_f32(&embedding);
-        let nearest_neighbours = world.search(&vector, 5, 5);
+        let nearest_neighbours = world.search(&vector, 5, 5)?;
         println!("Nearest neighbours: {:?}", nearest_neighbours);
 
         // show the lines from the dataset that correspond to the nearest neighbours
