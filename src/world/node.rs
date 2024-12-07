@@ -33,6 +33,14 @@ impl Node {
         self.connections[level].clone().into_iter().collect()
     }
 
+    pub fn connections_len(&self) -> usize {
+        self.connections.len()
+    }
+
+    pub fn add_connection_level(&mut self) {
+        self.connections.push(HashSet::new());
+    }
+
     /// distance calculates the distance between this node and another vector
     pub fn distance(&self, other: &Vector, distance_metric: &DistanceMetric) -> f32 {
         distance_metric.distance(&self.value, other)
@@ -45,6 +53,19 @@ impl Node {
 
     /// connect connects this node to another node at a given level
     pub fn connect(&mut self, other: &mut Node, level: usize) {
+        assert!(
+            self.connections.len() > level,
+            "Self connections vector too short: len={}, level={}",
+            self.connections.len(),
+            level
+        );
+        assert!(
+            other.connections.len() > level,
+            "Other connections vector too short: len={}, level={}",
+            other.connections.len(),
+            level
+        );
+
         self.connections[level].insert(other.id);
         other.connections[level].insert(self.id);
     }
