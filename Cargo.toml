@@ -1,6 +1,6 @@
 [package]
 name = "small-world-rs"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "The easiest HNSW vector index you'll ever use"
 repository = "https://github.com/httpjamesm/small-world-rs"
