@@ -7,6 +7,7 @@ repository = "https://github.com/httpjamesm/small-world-rs"
 readme = "readme.md"
 keywords = ["hnsw", "vector", "search", "index", "graph"]
 categories = ["data-structures"]
+license = "MIT"
 
 [lib]
 name = "small_world_rs"
