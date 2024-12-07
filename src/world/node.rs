@@ -31,8 +31,8 @@ impl Node {
         self.connections[level].clone().into_iter().collect()
     }
 
-    pub fn distance(&self, other: &Node) -> f32 {
-        calculate_cosine_similarity(&self.value, &other.value)
+    pub fn distance(&self, other: &Vec<f32>) -> f32 {
+        1.0 - calculate_cosine_similarity(&self.value, other)
     }
 
     pub fn id(&self) -> u32 {

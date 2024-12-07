@@ -74,7 +74,7 @@ impl World {
         let mut best_candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
 
         // get the distance between the new node and the entry node
-        let distance = 1.0 - calculate_cosine_similarity(&query, entry_node.value());
+        let distance = entry_node.distance(query);
         // add the entry node to the candidates
         // we're using negatives here because BinaryHeap is a max heap by default and we want min heap behaviour to find the nearest neighbours, not the furthest
         candidates.push((-OrderedFloat(distance), entry_node.id()));
@@ -100,11 +100,7 @@ impl World {
                 visited.insert(neighbour_id);
 
                 // get the distance between the new node and the neighbour
-                let distance = 1.0
-                    - calculate_cosine_similarity(
-                        &query,
-                        self.nodes.get(&neighbour_id).unwrap().value(),
-                    );
+                let distance = self.nodes.get(&neighbour_id).unwrap().distance(query);
 
                 // if this candidate is better than the best candidate
                 if best_candidates.len() < self.ef_construction
@@ -183,7 +179,7 @@ impl World {
             node.connections(level)
                 .iter()
                 .map(|&neighbour_id| {
-                    let distance = node.distance(self.nodes.get(&neighbour_id).unwrap());
+                    let distance = node.distance(self.nodes.get(&neighbour_id).unwrap().value());
                     (neighbour_id, distance)
                 })
                 .collect()
@@ -209,7 +205,7 @@ impl World {
             .into_iter()
             .map(|id| {
                 let node = self.nodes.get(&id).unwrap();
-                let distance = calculate_cosine_similarity(&query, node.value());
+                let distance = node.distance(query);
                 (id, distance)
             })
             .collect();
