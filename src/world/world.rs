@@ -221,7 +221,7 @@ impl World {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
         // calculate actual distance for entrypoint node
         let entrypoint_node = self.get_entrypoint_node();
-        let initial_distance = calculate_cosine_similarity(query, entrypoint_node.value());
+        let initial_distance = entrypoint_node.distance(query);
         candidates.push((OrderedFloat(initial_distance), entrypoint_node.id()));
 
         // for every level,
@@ -232,8 +232,7 @@ impl World {
                 let candidate = self.nodes.get(&candidate_id).unwrap();
                 let local_best = self.greedy_search(&query, candidate, level);
                 for &id in &local_best {
-                    let dist =
-                        calculate_cosine_similarity(&query, self.nodes.get(&id).unwrap().value());
+                    let dist = self.nodes.get(&id).unwrap().distance(query);
                     next_candidates.push((OrderedFloat(dist), id));
                 }
             }
