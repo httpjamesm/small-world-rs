@@ -1,7 +1,7 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde_json::{json, Value};
-use small_world_rs::world::world::World;
+use small_world_rs::{primitives::vector::Vector, world::world::World};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -24,7 +24,7 @@ async fn get_embedding(client: &Client, text: &str) -> Result<Vec<f32>> {
         .await?;
 
     let response: Value = response.json().await?;
-    let embedding = response["embedding"]
+    let embedding: Vec<f32> = response["embedding"]
         .as_array()
         .unwrap()
         .iter()
@@ -65,7 +65,8 @@ async fn main() -> Result<()> {
             let line = line?;
             println!("Processing line {}", id);
             let embedding: Vec<f32> = serde_json::from_str(&line)?;
-            world.insert_vector(id as u32, embedding)?;
+            let vector = Vector::new_f32(&embedding);
+            world.insert_vector(id as u32, vector)?;
         }
 
         // Dump the world after construction
@@ -85,7 +86,8 @@ async fn main() -> Result<()> {
         query = query.trim().to_string();
 
         let embedding = get_embedding(&client, &query).await?;
-        let nearest_neighbours = world.search(&embedding, 5, 5);
+        let vector = Vector::new_f32(&embedding);
+        let nearest_neighbours = world.search(&vector, 5, 5);
         println!("Nearest neighbours: {:?}", nearest_neighbours);
 
         // show the lines from the dataset that correspond to the nearest neighbours
