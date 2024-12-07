@@ -1,15 +1,8 @@
 use crate::primitives::vector::Vector;
-
-fn calculate_dot_product(a: &Vector, b: &Vector) -> f32 {
-    a.iter().zip(b.iter()).map(|(a, b)| a * b).sum()
-}
-
-fn get_vector_magnitude(a: &Vector) -> f32 {
-    a.iter().map(|a| a * a).sum::<f32>().sqrt()
-}
+use simsimd::SpatialSimilarity;
 
 pub(crate) fn calculate_cosine_similarity(a: &Vector, b: &Vector) -> f32 {
-    calculate_dot_product(a, b) / (get_vector_magnitude(a) * get_vector_magnitude(b))
+    1.0 - f32::cosine(a.as_slice().as_ref(), b.as_slice().as_ref()).unwrap() as f32
 }
 
 #[cfg(test)]
@@ -17,22 +10,6 @@ mod tests {
 
     use super::*;
     use assert_approx_eq::assert_approx_eq;
-
-    // test the dot product of two vectors
-    #[test]
-    fn test_dot_product() {
-        let a = Vector::new_f32(&[1.0, 2.0, 3.0]);
-        let b = Vector::new_f32(&[4.0, 5.0, 6.0]);
-        assert_eq!(calculate_dot_product(&a, &b), 32.0);
-    }
-
-    // test getting vector magnitude
-    #[test]
-    fn test_vector_magnitude() {
-        let a = Vector::new_f32(&[1.0, 2.0, 3.0]);
-        let magnitude = ((1.0 * 1.0 + 2.0 * 2.0 + 3.0 * 3.0) as f32).sqrt();
-        assert_eq!(get_vector_magnitude(&a), magnitude);
-    }
 
     // test cosine similarity
     #[test]

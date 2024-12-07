@@ -39,6 +39,13 @@ impl Vector {
             VectorStorage::F32(v) => v.get(index).copied(),
         }
     }
+
+    pub fn as_slice(&self) -> Vec<f32> {
+        match &self.storage {
+            VectorStorage::F16(v) => v.as_slice().iter().map(|x| x.to_f32()).collect(),
+            VectorStorage::F32(v) => v.as_slice().to_vec(),
+        }
+    }
 }
 
 pub enum VectorIter<'a> {
