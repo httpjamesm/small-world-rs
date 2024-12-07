@@ -74,7 +74,7 @@ impl World {
         let mut best_candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
 
         // get the distance between the new node and the entry node
-        let distance = calculate_cosine_similarity(&query, entry_node.value());
+        let distance = 1.0 - calculate_cosine_similarity(&query, entry_node.value());
         // add the entry node to the candidates
         // we're using negatives here because BinaryHeap is a max heap by default and we want min heap behaviour to find the nearest neighbours, not the furthest
         candidates.push((-OrderedFloat(distance), entry_node.id()));
@@ -85,7 +85,6 @@ impl World {
         while !candidates.is_empty() {
             let (current_dist, current_id) = candidates.pop().unwrap();
 
-            // if the current distance is better than the best distance, we bound a better candidate
             if !best_candidates.is_empty() && -current_dist > best_candidates.peek().unwrap().0 {
                 break;
             }
@@ -101,21 +100,21 @@ impl World {
                 visited.insert(neighbour_id);
 
                 // get the distance between the new node and the neighbour
-                let distance = calculate_cosine_similarity(
-                    &query,
-                    self.nodes.get(&neighbour_id).unwrap().value(),
-                );
+                let distance = 1.0
+                    - calculate_cosine_similarity(
+                        &query,
+                        self.nodes.get(&neighbour_id).unwrap().value(),
+                    );
 
                 // if this candidate is better than the best candidate
                 if best_candidates.len() < self.ef_construction
-                    || -OrderedFloat(distance) > best_candidates.peek().unwrap().0
+                    || OrderedFloat(distance) < best_candidates.peek().unwrap().0
                 {
-                    // add the neighbour to the candidates
+                    // The new candidate is strictly better (smaller distance) than the worst one we have so far.
                     candidates.push((-OrderedFloat(distance), neighbour_id));
-                    // this is our best candidate for this level
-                    best_candidates.push((-OrderedFloat(distance), neighbour_id));
+                    best_candidates.push((OrderedFloat(distance), neighbour_id));
 
-                    // ensure we are abiding the ef construction parameter
+                    // Enforce ef_construction by popping the largest distance from best_candidates if needed
                     if best_candidates.len() > self.ef_construction {
                         best_candidates.pop();
                     }
