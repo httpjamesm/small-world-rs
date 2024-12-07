@@ -217,8 +217,7 @@ impl World {
             })
             .collect();
 
-        // Sort by distance (assuming higher cosine similarity is better)
-        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        results.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
         // Return top k results
         results.into_iter().take(k).map(|(id, _)| id).collect()
