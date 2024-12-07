@@ -49,7 +49,7 @@ impl World {
     pub(crate) fn pick_node_level(&self) -> usize {
         let p = 1.0 / (self.m as f32);
         let mut level = 0;
-        while fastrand::f32() < (1.0 - p) && level < self.max_level - 1 {
+        while fastrand::f32() < (1.0 - p) && level < self.max_level {
             level += 1;
         }
         level
@@ -224,9 +224,10 @@ impl World {
 
     fn beam_search(&self, query: &Vec<f32>, beam_width: usize) -> Vec<u32> {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
-        // add the entrypoint node to the candidates
+        // calculate actual distance for entrypoint node
         let entrypoint_node = self.get_entrypoint_node();
-        candidates.push((OrderedFloat(0.0), entrypoint_node.id()));
+        let initial_distance = calculate_cosine_similarity(query, entrypoint_node.value());
+        candidates.push((OrderedFloat(initial_distance), entrypoint_node.id()));
 
         // for every level,
         for level in (0..=self.max_level).rev() {
