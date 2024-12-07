@@ -3,8 +3,10 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use super::node::Node;
 use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
 
 // World is the main struct that represents the full HNSW graph world
+#[derive(Clone, Serialize, Deserialize)]
 pub struct World {
     // nodes is a list of all the nodes in the world by id
     nodes: HashMap<u32, Node>,
@@ -41,6 +43,11 @@ impl World {
             ef_search,
             max_level,
         })
+    }
+
+    pub fn new_from_dump(data: &[u8]) -> Result<Self> {
+        bincode::deserialize(data)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize world: {}", e))
     }
 
     // pick_node_level picks the level at which a new node should be inserted based on the probabalistic insertion strategy.
@@ -286,6 +293,11 @@ impl World {
             .take(beam_width)
             .map(|(_, id)| id)
             .collect()
+    }
+
+    // dump serializes the world to binary data so the user can save it for later use without abstraction
+    pub fn dump(&self) -> Result<Vec<u8>> {
+        bincode::serialize(&self).map_err(|e| anyhow::anyhow!("Failed to serialize world: {}", e))
     }
 }
 

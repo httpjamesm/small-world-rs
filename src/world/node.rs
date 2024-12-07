@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::metrics::calculate_cosine_similarity;
 use std::collections::HashSet;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Node {
     // id is the unique identifier for the node
     id: u32,
