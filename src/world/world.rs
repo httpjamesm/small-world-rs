@@ -61,6 +61,9 @@ impl World {
     }
 
     fn get_entrypoint_node_per_level(&self, level: usize) -> Node {
+        if self.level_entrypoints.is_empty() {
+            return self.nodes.values().next().unwrap().clone();
+        }
         let id = self.level_entrypoints[level];
         self.nodes.get(&id).unwrap().clone()
     }
@@ -83,7 +86,7 @@ impl World {
             let (current_dist, current_id) = candidates.pop().unwrap();
 
             // if the current distance is better than the best distance, we bound a better candidate
-            if -current_dist > best_candidates.peek().unwrap().0 {
+            if !best_candidates.is_empty() && -current_dist > best_candidates.peek().unwrap().0 {
                 break;
             }
 
@@ -132,6 +135,14 @@ impl World {
     // 5. if the new node has no connections, add it to the graph at level 0
     pub(crate) fn insert_node(&mut self, node: &mut Node) -> Result<()> {
         let level = self.pick_node_level();
+
+        // If this is the first node, initialize it as the entrypoint for all levels
+        if self.nodes.is_empty() {
+            self.level_entrypoints = vec![node.id(); self.max_level + 1];
+            self.nodes.insert(node.id(), node.clone());
+            return Ok(());
+        }
+
         // for level and every one below, we need to connect the new node to the nearest neighbours on that level
         for level in (0..=level).rev() {
             let entrypoint_node = self.get_entrypoint_node_per_level(level);
@@ -242,5 +253,36 @@ impl World {
 
         // return the best candidate
         candidates.into_iter().map(|(_, id)| id).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_world_insert_and_search() -> Result<()> {
+        let mut world = World::new(5, 10, 10, 3)?;
+
+        let test_vectors = vec![
+            (1, vec![1.0, 0.0, 0.0]),
+            (2, vec![0.0, 1.0, 0.0]),
+            (3, vec![0.0, 0.0, 1.0]),
+            (4, vec![0.7, 0.7, 0.0]),
+        ];
+
+        for (id, vector) in test_vectors {
+            let level = world.pick_node_level();
+            let mut node = Node::new(id, vector, level);
+            world.insert_node(&mut node)?;
+        }
+
+        let query = vec![0.8, 0.8, 0.0];
+        let results = world.search(&query, 2, 5);
+
+        assert_eq!(results.len(), 2);
+        assert!(results.contains(&4), "Should find vector [0.7, 0.7, 0.0]");
+
+        Ok(())
     }
 }

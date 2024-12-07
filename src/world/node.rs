@@ -1,4 +1,5 @@
 use crate::metrics::calculate_cosine_similarity;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Node {
@@ -8,7 +9,7 @@ pub struct Node {
     value: Vec<f32>,
     // connections represents the ids of the nodes that this node is connected to.
     // index = level, value = ids of nodes in that level that this node is connected to
-    connections: Vec<Vec<u32>>,
+    connections: Vec<HashSet<u32>>,
     max_level: usize,
 }
 
@@ -17,7 +18,7 @@ impl Node {
         Self {
             id,
             value,
-            connections: vec![Vec::new(); max_level + 1],
+            connections: vec![HashSet::new(); max_level + 1],
             max_level,
         }
     }
@@ -27,7 +28,7 @@ impl Node {
         if level >= self.connections.len() {
             return vec![];
         }
-        self.connections[level].clone()
+        self.connections[level].clone().into_iter().collect()
     }
 
     pub fn distance(&self, other: &Node) -> f32 {
@@ -39,13 +40,13 @@ impl Node {
     }
 
     pub fn connect(&mut self, other: &mut Node, level: usize) {
-        self.connections[level].push(other.id);
-        other.connections[level].push(self.id);
+        self.connections[level].insert(other.id);
+        other.connections[level].insert(self.id);
     }
 
     pub fn disconnect(&mut self, other: &mut Node, level: usize) {
-        self.connections[level].retain(|&id| id != other.id);
-        other.connections[level].retain(|&id| id != self.id);
+        self.connections[level].remove(&other.id);
+        other.connections[level].remove(&self.id);
     }
 
     pub fn remove_connections(&mut self, ids: &[u32], level: usize) {
