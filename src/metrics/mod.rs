@@ -1,4 +1,4 @@
-use crate::primitives::Vector;
+use crate::primitives::vector::Vector;
 
 fn calculate_dot_product(a: &Vector, b: &Vector) -> f32 {
     a.iter().zip(b.iter()).map(|(a, b)| a * b).sum()

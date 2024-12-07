@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use super::node::Node;
-use crate::primitives::Vector;
+use crate::primitives::vector::Vector;
 use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};

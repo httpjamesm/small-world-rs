@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::metrics::calculate_cosine_similarity;
-use crate::primitives::Vector;
+use crate::primitives::vector::Vector;
 use std::collections::HashSet;
 
 #[derive(Clone, Serialize, Deserialize)]
