@@ -8,6 +8,7 @@ enum VectorStorage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Vector is a primitive type that stores a vector embedding, whether it's f16 or f32
 pub struct Vector {
     storage: VectorStorage,
 }

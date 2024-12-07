@@ -1,10 +1,12 @@
 use crate::primitives::vector::Vector;
 use simsimd::SpatialSimilarity;
 
+/// calculate_cosine_similarity calculates the cosine similarity between two vectors
 pub(crate) fn calculate_cosine_similarity(a: &Vector, b: &Vector) -> f32 {
     1.0 - f32::cosine(a.as_slice().as_ref(), b.as_slice().as_ref()).unwrap() as f32
 }
 
+/// calculate_euclidean_distance calculates the euclidean distance between two vectors
 pub(crate) fn calculate_euclidean_distance(a: &Vector, b: &Vector) -> f32 {
     f32::euclidean(a.as_slice().as_ref(), b.as_slice().as_ref()).unwrap() as f32
 }

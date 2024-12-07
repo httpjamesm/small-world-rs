@@ -6,22 +6,23 @@ use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 
-// World is the main struct that represents the full HNSW graph world
+/// World is the main struct that represents the full HNSW graph world
 #[derive(Clone, Serialize, Deserialize)]
 pub struct World {
-    // nodes is a list of all the nodes in the world by id
+    /// nodes is a list of all the nodes in the world by id
     nodes: HashMap<u32, Node>,
-    // level_entrypoints is a list of the ids of the entrypoint nodes for each level
-    // index = level, value = id of the entrypoint node
+    /// level_entrypoints is a list of the ids of the entrypoint nodes for each level
+    /// index = level, value = id of the entrypoint node
     level_entrypoints: Vec<u32>,
-    // m is the maximum number of connections for a node
+    /// m is the maximum number of connections for a node
     m: usize,
-    // ef_construction is the maximum number of connections to explore for a node during construction
+    /// ef_construction is the maximum number of connections to explore for a node during construction
     ef_construction: usize,
-    // ef_search is the maximum number of connections to explore for a node during search
+    /// ef_search is the maximum number of connections to explore for a node during search
     ef_search: usize,
     // max_level is the maximum level of the HNSW graph
     max_level: usize,
+    /// distance_metric is the distance metric used to calculate distances between vectors
     distance_metric: DistanceMetric,
 }
 
@@ -48,12 +49,13 @@ impl World {
         })
     }
 
+    /// new_from_dump creates a new world from a serialized dump
     pub fn new_from_dump(data: &[u8]) -> Result<Self> {
         bincode::deserialize(data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize world: {}", e))
     }
 
-    // pick_node_level picks the level at which a new node should be inserted based on the probabalistic insertion strategy.
+    /// pick_node_level picks the level at which a new node should be inserted based on the probabalistic insertion strategy.
     pub(crate) fn pick_node_level(&self) -> usize {
         let p = 1.0 / (self.m as f32);
         let mut level = 0;
@@ -63,11 +65,12 @@ impl World {
         level
     }
 
-    // get_entrypoint_node gets the entrypoint node for the HNSW graph.
+    /// get_entrypoint_node gets the entrypoint node for the HNSW graph.
     fn get_entrypoint_node(&self) -> Node {
         self.get_entrypoint_node_per_level(self.max_level)
     }
 
+    /// get_entrypoint_node_per_level gets the entrypoint node for a given level
     fn get_entrypoint_node_per_level(&self, level: usize) -> Node {
         if self.level_entrypoints.is_empty() {
             return self.nodes.values().next().unwrap().clone();
@@ -76,6 +79,7 @@ impl World {
         self.nodes.get(&id).unwrap().clone()
     }
 
+    /// greedy_search performs a greedy search for the k nearest neighbours to the query vector
     fn greedy_search(&self, query: &Vector, entry_node: &Node, level: usize) -> Vec<u32> {
         let mut visited = HashSet::new();
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
@@ -141,7 +145,7 @@ impl World {
         best_candidates.into_iter().map(|(_, id)| id).collect()
     }
 
-    // insert_node inserts a new node into the world.
+    /// insert_node inserts a new node into the world.
     // 1. pick the level at which to insert the node
     // 2. find the M nearest neighbors for the node at the chosen level
     // 3. connect the new node to the neighbors and on all lower levels
@@ -216,6 +220,7 @@ impl World {
         Ok(())
     }
 
+    /// prune_node_connections prunes the connections of a node at a given level by getting rid of the furthest connections
     fn prune_node_connections(&mut self, node_id: u32, level: usize) {
         let mut distances: Vec<(u32, f32)> = {
             let node = self.nodes.get(&node_id).unwrap();
@@ -251,7 +256,7 @@ impl World {
         }
     }
 
-    // search gets the k nearest neighbours to the query vector using beam search
+    /// search gets the k nearest neighbours to the query vector using beam search
     pub fn search(&self, query: &Vector, k: usize, beam_width: usize) -> Result<Vec<u32>> {
         if k > self.ef_search {
             bail!(
@@ -276,6 +281,7 @@ impl World {
         Ok(results.into_iter().take(k).map(|(id, _)| id).collect())
     }
 
+    /// beam_search performs a beam search for the k nearest neighbours to the query vector
     fn beam_search(&self, query: &Vector, beam_width: usize) -> Vec<u32> {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
         let entrypoint_node = self.get_entrypoint_node();
@@ -328,12 +334,13 @@ impl World {
             .collect()
     }
 
-    // dump serializes the world to binary data so the user can save it for later use without abstraction
+    /// dump serializes the world to binary data so the user can save it for later use without abstraction
     pub fn dump(&self) -> Result<Vec<u8>> {
         bincode::serialize(&self).map_err(|e| anyhow::anyhow!("Failed to serialize world: {}", e))
     }
 }
 
+/// calculate_max_level calculates the maximum level of the HNSW graph based on the number of nodes and the maximum number of connections per node
 fn calculate_max_level(n: usize, m: usize) -> usize {
     // p = 1/m
     // max_level ≈ log(n)/log(m)
