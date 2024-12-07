@@ -132,7 +132,7 @@ impl World {
         let mut node = Node::new(id, vector, level);
         // If this is the first node, initialize it as the entrypoint for all levels
         if self.nodes.is_empty() {
-            self.level_entrypoints = vec![node.id(); self.max_level + 1];
+            self.level_entrypoints = vec![id; level + 1];
             self.nodes.insert(node.id(), node.clone());
             return Ok(());
         }
@@ -231,10 +231,11 @@ impl World {
         let initial_distance = entrypoint_node.distance(query);
         candidates.push((OrderedFloat(initial_distance), entrypoint_node.id()));
 
+        let mut visited = HashSet::new();
+
         // for every level,
         for level in (0..=self.max_level).rev() {
             let mut next_candidates = Vec::new();
-            let mut visited = HashSet::new();
             while let Some((_, candidate_id)) = candidates.pop() {
                 if visited.contains(&candidate_id) {
                     continue;
