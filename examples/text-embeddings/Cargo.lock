@@ -1058,6 +1058,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "simsimd"
+version = "6.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb18072bc601c31152841c2a114b78c11fe15513f0767eacd57d68359b7130e3"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1078,6 +1087,7 @@ dependencies = [
  "half",
  "ordered-float",
  "serde",
+ "simsimd",
 ]
 
 [[package]]

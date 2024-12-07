@@ -1,7 +1,11 @@
 use anyhow::Result;
 use reqwest::Client;
 use serde_json::{json, Value};
-use small_world_rs::{primitives::vector::Vector, world::world::World};
+use small_world_rs::{
+    distance_metric::{CosineDistance, DistanceMetric},
+    primitives::vector::Vector,
+    world::world::World,
+};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -46,7 +50,7 @@ async fn main() -> Result<()> {
         let world_data = fs::read(WORLD_FILE)?;
         World::new_from_dump(&world_data)?
     } else {
-        let mut world = World::new(16, 32, 32, 2)?;
+        let mut world = World::new(16, 32, 32, 2, DistanceMetric::Cosine(CosineDistance))?;
         let cache_path = Path::new(CACHE_FILE);
 
         if !cache_path.exists() {
