@@ -1,6 +1,8 @@
 # small-world-rs
 
-![crates.io](https://img.shields.io/crates/v/small-world-rs.svg)
+<a href="https://crates.io/crates/small-world-rs">
+    <img src="https://img.shields.io/crates/v/small-world-rs.svg" alt="crates.io">
+</a>
 
 small-world-rs is an HNSW vector index written in Rust.
 
