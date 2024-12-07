@@ -172,6 +172,13 @@ impl World {
         if new_max_level > self.max_level {
             self.max_level = new_max_level;
             self.level_entrypoints.resize(new_max_level + 1, id);
+
+            // Ensure all existing nodes have expanded connections
+            for node in self.nodes.values_mut() {
+                while node.connections_len() < self.max_level + 1 {
+                    node.add_connection_level();
+                }
+            }
         }
 
         let level = self.pick_node_level();
