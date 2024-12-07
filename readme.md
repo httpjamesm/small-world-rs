@@ -6,8 +6,8 @@ small-world-rs is an HNSW vector index written in Rust.
 
 - Fast, accurate and easy to implement
 - Choose your precision (16 or 32 bit floats)
-- Choose your distance metric or bring your own
-  - Out of the box, supports cosine distance (recommended for text) and euclidean distance (recommended for images)
+- Choose your distance metric
+  - Supports cosine distance (recommended for text) and euclidean distance (recommended for images)
 - Serialize and deserialize for persistence
 
 ## Example
