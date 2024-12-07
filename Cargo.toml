@@ -3,6 +3,10 @@ name = "small-world-rs"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "small_world_rs"
+crate-type = ["lib"]
+
 [dependencies]
 anyhow = "1.0.94"
 assert_approx_eq = "1.1.0"
