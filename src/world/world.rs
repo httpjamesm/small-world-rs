@@ -78,6 +78,7 @@ impl World {
         candidates.push((-OrderedFloat(distance), entry_node.id()));
         // add to the visited set
         visited.insert(entry_node.id());
+        best_candidates.push((OrderedFloat(distance), entry_node.id()));
 
         // let's go through the graph to find the best candidates
         while !candidates.is_empty() {
