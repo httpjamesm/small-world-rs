@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::metrics::calculate_cosine_similarity;
+use crate::primitives::Vector;
 use std::collections::HashSet;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -8,14 +9,14 @@ pub struct Node {
     // id is the unique identifier for the node
     id: u32,
     // value is the value of the node, aka the vector embedding
-    value: Vec<f32>,
+    value: Vector,
     // connections represents the ids of the nodes that this node is connected to.
     // index = level, value = ids of nodes in that level that this node is connected to
     connections: Vec<HashSet<u32>>,
 }
 
 impl Node {
-    pub fn new(id: u32, value: Vec<f32>, max_level: usize) -> Self {
+    pub fn new(id: u32, value: Vector, max_level: usize) -> Self {
         Self {
             id,
             value,
@@ -31,7 +32,7 @@ impl Node {
         self.connections[level].clone().into_iter().collect()
     }
 
-    pub fn distance(&self, other: &Vec<f32>) -> f32 {
+    pub fn distance(&self, other: &Vector) -> f32 {
         1.0 - calculate_cosine_similarity(&self.value, other)
     }
 
@@ -53,7 +54,7 @@ impl Node {
         self.connections[level].retain(|id| !ids.contains(id));
     }
 
-    pub fn value(&self) -> &Vec<f32> {
+    pub fn value(&self) -> &Vector {
         &self.value
     }
 }

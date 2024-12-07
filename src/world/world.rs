@@ -1,6 +1,7 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use super::node::Node;
+use crate::primitives::Vector;
 use anyhow::{bail, Result};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -73,7 +74,7 @@ impl World {
         self.nodes.get(&id).unwrap().clone()
     }
 
-    fn greedy_search(&self, query: &Vec<f32>, entry_node: &Node, level: usize) -> Vec<u32> {
+    fn greedy_search(&self, query: &Vector, entry_node: &Node, level: usize) -> Vec<u32> {
         let mut visited = HashSet::new();
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
         let mut best_candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
@@ -135,7 +136,7 @@ impl World {
     // 3. connect the new node to the neighbors and on all lower levels
     // 4. recursively connect the new node to the neighbors' neighbors
     // 5. if the new node has no connections, add it to the graph at level 0
-    pub fn insert_vector(&mut self, id: u32, vector: Vec<f32>) -> Result<()> {
+    pub fn insert_vector(&mut self, id: u32, vector: Vector) -> Result<()> {
         let level = self.pick_node_level();
         let mut node = Node::new(id, vector, level);
 
@@ -229,7 +230,7 @@ impl World {
     }
 
     // search gets the k nearest neighbours to the query vector using beam search
-    pub fn search(&self, query: &Vec<f32>, k: usize, beam_width: usize) -> Vec<u32> {
+    pub fn search(&self, query: &Vector, k: usize, beam_width: usize) -> Vec<u32> {
         let candidates = self.beam_search(query, beam_width);
 
         let mut results: Vec<(u32, f32)> = candidates
@@ -247,7 +248,7 @@ impl World {
         results.into_iter().take(k).map(|(id, _)| id).collect()
     }
 
-    fn beam_search(&self, query: &Vec<f32>, beam_width: usize) -> Vec<u32> {
+    fn beam_search(&self, query: &Vector, beam_width: usize) -> Vec<u32> {
         let mut candidates: BinaryHeap<(OrderedFloat<f32>, u32)> = BinaryHeap::new();
         let entrypoint_node = self.get_entrypoint_node();
         let initial_distance = entrypoint_node.distance(query);
@@ -310,17 +311,17 @@ mod tests {
         let mut world = World::new(5, 10, 10, 3)?;
 
         let test_vectors = vec![
-            (1, vec![1.0, 0.0, 0.0]),
-            (2, vec![0.0, 1.0, 0.0]),
-            (3, vec![0.0, 0.0, 1.0]),
-            (4, vec![0.7, 0.7, 0.0]),
+            (1, Vector::new_f32(&[1.0, 0.0, 0.0])),
+            (2, Vector::new_f32(&[0.0, 1.0, 0.0])),
+            (3, Vector::new_f32(&[0.0, 0.0, 1.0])),
+            (4, Vector::new_f32(&[0.7, 0.7, 0.0])),
         ];
 
         for (id, vector) in test_vectors {
             world.insert_vector(id, vector)?;
         }
 
-        let query = vec![0.8, 0.8, 0.0];
+        let query = Vector::new_f32(&[0.8, 0.8, 0.0]);
         let results = world.search(&query, 2, 5);
 
         assert!(results.len() >= 1, "Should find at least 1 result");
