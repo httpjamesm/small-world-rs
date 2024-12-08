@@ -9,7 +9,7 @@ keywords = ["hnsw", "vector", "search", "index", "graph"]
 categories = ["data-structures"]
 license = "MIT"
 
-exclude = ["benches", "examples"]
+exclude = ["benches", "examples", ".github"]
 
 [lib]
 name = "small_world_rs"
