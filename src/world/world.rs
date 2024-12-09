@@ -1,10 +1,10 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
-
 use super::node::Node;
 use crate::{distance_metric::DistanceMetric, primitives::vector::Vector};
 use anyhow::{bail, Result};
+use hashbrown::HashMap;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+use std::collections::{BinaryHeap, HashSet};
 
 /// World is the main struct that represents the full HNSW graph world
 #[derive(Clone, Serialize, Deserialize)]
@@ -88,52 +88,46 @@ impl World {
         // get the distance between the new node and the entry node
         let distance = entry_node.distance(query, &self.distance_metric);
         // add the entry node to the candidates
-        // we're using negatives here because BinaryHeap is a max heap by default and we want min heap behaviour to find the nearest neighbours, not the furthest
         candidates.push((-OrderedFloat(distance), entry_node.id()));
-        // add to the visited set
         visited.insert(entry_node.id());
         best_candidates.push((OrderedFloat(distance), entry_node.id()));
 
-        // let's go through the graph to find the best candidates
-        while !candidates.is_empty() {
-            let (current_dist, current_id) = candidates.pop().unwrap();
-
-            // if the current distance is greater than the best candidate, skip it because it's a bad candidate
+        while let Some((current_dist, current_id)) = candidates.pop() {
             if !best_candidates.is_empty() && -current_dist > best_candidates.peek().unwrap().0 {
                 continue;
             }
 
-            // at this level, we need to check the neighbours
-            for neighbour_id in self.nodes.get(&current_id).unwrap().connections(level) {
-                // if we've already visited this node, skip it
+            let current_node = match self.nodes.get(&current_id) {
+                Some(node) => node,
+                None => continue,
+            };
+
+            for neighbour_id in current_node.connections(level) {
                 if visited.contains(&neighbour_id) {
                     continue;
                 }
 
-                // visit the node
+                let neighbour = match self.nodes.get(&neighbour_id) {
+                    Some(node) => node,
+                    None => continue,
+                };
+
                 visited.insert(neighbour_id);
 
-                // get the distance between the new node and the neighbour
-                let distance = self
-                    .nodes
-                    .get(&neighbour_id)
-                    .unwrap()
-                    .distance(query, &self.distance_metric);
+                let distance = neighbour.distance(query, &self.distance_metric);
 
-                // if this candidate is better than the best candidate
                 let ef_size = if level == 0 {
                     self.ef_search
                 } else {
                     self.ef_construction
                 };
+
                 if best_candidates.len() < ef_size
                     || OrderedFloat(distance) < best_candidates.peek().unwrap().0
                 {
-                    // The new candidate is strictly better (smaller distance) than the worst one we have so far.
-                    candidates.push((OrderedFloat(distance), neighbour_id));
+                    candidates.push((-OrderedFloat(distance), neighbour_id));
                     best_candidates.push((OrderedFloat(distance), neighbour_id));
 
-                    // Enforce ef_construction by popping the largest distance from best_candidates if needed (max heap, so the root node is the furthest and therefore the worst)
                     if best_candidates.len() > ef_size {
                         best_candidates.pop();
                     }
@@ -141,7 +135,6 @@ impl World {
             }
         }
 
-        // return our best candidates
         best_candidates.into_iter().map(|(_, id)| id).collect()
     }
 
@@ -359,6 +352,120 @@ impl World {
     pub fn dump(&self) -> Result<Vec<u8>> {
         bincode::serialize(&self).map_err(|e| anyhow::anyhow!("Failed to serialize world: {}", e))
     }
+
+    /// delete_node deletes a node from the world while maintaining the structure of the graph
+    pub fn delete_node(&mut self, id: u32) -> Result<()> {
+        // ensure the node exists
+        if !self.nodes.contains_key(&id) {
+            bail!("Node with ID {} does not exist", id);
+        }
+
+        // Get the node's connections before removing it
+        let node_connections: Vec<Vec<u32>> = (0..=self.max_level)
+            .map(|level| self.nodes.get(&id).unwrap().connections(level))
+            .collect();
+
+        // Remove the node from the nodes HashMap
+        self.nodes.remove(&id);
+
+        // Iterate through all levels where the node had connections
+        for (level, connections) in node_connections.into_iter().enumerate() {
+            for &neighbor_id in &connections {
+                // Remove the deleted node's ID from the neighbor's connections at this level
+                if let Some(neighbor) = self.nodes.get_mut(&neighbor_id) {
+                    neighbor.remove_connections(&[id], level);
+                }
+                // Re-connect the neighbor to its nearest neighbors at this level
+                self.reconnect_neighbor(neighbor_id, level)?;
+            }
+        }
+
+        // Update entry points for any levels where the deleted node was the entry point
+        for level in 0..=self.max_level {
+            if self.level_entrypoints[level] == id {
+                if let Some(new_entrypoint) = self.choose_new_entrypoint(level)? {
+                    self.level_entrypoints[level] = new_entrypoint;
+                } else {
+                    self.level_entrypoints[level] = 0;
+                }
+            }
+        }
+
+        // Adjust the max_level if necessary
+        let new_max_level = calculate_max_level(self.nodes.len(), self.m);
+        if new_max_level < self.max_level {
+            self.max_level = new_max_level;
+            self.level_entrypoints.truncate(new_max_level + 1);
+        }
+
+        Ok(())
+    }
+
+    /// reconnect_neighbor reconnects a neighbor to its nearest neighbors at a given level
+    fn reconnect_neighbor(&mut self, neighbor_id: u32, level: usize) -> Result<()> {
+        // get the value of the neighbour
+        let neighbor_value = self
+            .nodes
+            .get(&neighbor_id)
+            .ok_or_else(|| anyhow::anyhow!("Neighbor node not found"))?
+            .value()
+            .clone();
+
+        let entrypoint = self.get_entrypoint_node_per_level(level);
+        let nearest_neighbors = self.greedy_search(&neighbor_value, &entrypoint, level);
+
+        let current_connections = self
+            .nodes
+            .get(&neighbor_id)
+            .unwrap()
+            .connections(level)
+            .to_vec();
+        let to_connect = nearest_neighbors
+            .into_iter()
+            .filter(|&id| id != neighbor_id && !current_connections.contains(&id))
+            .take(self.m - current_connections.len())
+            .collect::<Vec<_>>();
+
+        for new_neighbor_id in to_connect {
+            let keys = [&neighbor_id, &new_neighbor_id];
+            if let [Some(neighbor), Some(new_neighbor)] =
+                HashMap::get_many_mut(&mut self.nodes, keys)
+            {
+                neighbor.connect(new_neighbor, level);
+            }
+        }
+
+        if self
+            .nodes
+            .get(&neighbor_id)
+            .unwrap()
+            .connections(level)
+            .len()
+            > self.m
+        {
+            self.prune_node_connections(neighbor_id, level);
+        }
+
+        Ok(())
+    }
+
+    /// choose_new_entrypoint chooses a new entrypoint for a given level
+    fn choose_new_entrypoint(&self, level: usize) -> Result<Option<u32>> {
+        let candidates: Vec<u32> = self
+            .nodes
+            .iter()
+            .filter(|(_, node)| node.connections_len() > level)
+            .map(|(&id, _)| id)
+            .collect();
+
+        if candidates.is_empty() {
+            Ok(None)
+        } else {
+            let mut rng = fastrand::Rng::new();
+            let idx = rng.usize(..candidates.len());
+            Ok(Some(candidates[idx]))
+        }
+    }
 }
 
 /// calculate_max_level calculates the maximum level of the HNSW graph based on the number of nodes and the maximum number of connections per node
@@ -405,6 +512,47 @@ mod tests {
         let loaded_world = World::new_from_dump(&dump)?;
         let loaded_hash = blake3::hash(&loaded_world.dump()?);
         assert_eq!(original_hash, loaded_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete_node() -> Result<()> {
+        let mut world = World::new(5, 10, 10, DistanceMetric::Cosine(CosineDistance))?;
+
+        // Insert some test vectors
+        let test_vectors = vec![
+            (1, Vector::new_f32(&[1.0, 0.0, 0.0])),
+            (2, Vector::new_f32(&[0.0, 1.0, 0.0])),
+            (3, Vector::new_f32(&[0.0, 0.0, 1.0])),
+            (4, Vector::new_f32(&[0.7, 0.7, 0.0])),
+        ];
+
+        for (id, vector) in test_vectors {
+            world.insert_vector(id, vector)?;
+        }
+
+        // Delete a node
+        world.delete_node(2)?;
+
+        // Verify node is deleted
+        let query = Vector::new_f32(&[0.0, 1.0, 0.0]);
+        let results = world.search(&query, 4, 5)?;
+        assert!(
+            !results.contains(&2),
+            "Deleted node should not appear in search results"
+        );
+        assert_eq!(
+            results.len(),
+            3,
+            "Should only find 3 results after deletion"
+        );
+
+        // Try to delete non-existent node
+        assert!(
+            world.delete_node(999).is_err(),
+            "Deleting non-existent node should fail"
+        );
+
         Ok(())
     }
 }

@@ -81,22 +81,50 @@ async fn main() -> Result<()> {
     };
 
     println!("Successfully processed {} texts", dataset.len());
+    println!("Available commands:");
+    println!("  search <query> - Search for similar texts");
+    println!("  delete <id>   - Delete a node by ID");
+    println!("  quit         - Exit the program");
 
-    // now do interactive terminal to search semantically
     loop {
-        println!("Enter a query: ");
-        let mut query = String::new();
-        std::io::stdin().read_line(&mut query)?;
-        query = query.trim().to_string();
+        println!("\nEnter a command: ");
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim();
 
-        let embedding = get_embedding(&client, &query).await?;
-        let vector = Vector::new_f32(&embedding);
-        let nearest_neighbours = world.search(&vector, 5, 5)?;
-        println!("Nearest neighbours: {:?}", nearest_neighbours);
+        let parts: Vec<&str> = input.splitn(2, ' ').collect();
+        match parts.get(0).map(|s| *s) {
+            Some("search") => {
+                let query = parts
+                    .get(1)
+                    .ok_or_else(|| anyhow::anyhow!("Missing query"))?;
+                let embedding = get_embedding(&client, query).await?;
+                let vector = Vector::new_f32(&embedding);
+                let nearest_neighbours = world.search(&vector, 5, 5)?;
 
-        // show the lines from the dataset that correspond to the nearest neighbours
-        for neighbour in nearest_neighbours {
-            println!("{}", dataset[neighbour as usize]);
+                println!("\nNearest neighbours:");
+                for (idx, neighbour) in nearest_neighbours.iter().enumerate() {
+                    println!("ID {}: {}", neighbour, dataset[*neighbour as usize]);
+                }
+            }
+            Some("delete") => {
+                let id = parts
+                    .get(1)
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .ok_or_else(|| anyhow::anyhow!("Invalid ID"))?;
+
+                match world.delete_node(id) {
+                    Ok(_) => {
+                        println!("Successfully deleted node {}", id);
+                        // Save the updated world
+                        let world_data = world.dump()?;
+                        fs::write(WORLD_FILE, world_data)?;
+                    }
+                    Err(e) => println!("Failed to delete node: {}", e),
+                }
+            }
+            Some("quit") => break,
+            _ => println!("Invalid command. Use 'search <query>', 'delete <id>', or 'quit'"),
         }
     }
 
